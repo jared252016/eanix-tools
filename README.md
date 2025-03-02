@@ -13,7 +13,7 @@ This will copy the folder /path/to/source to each server's /path/to/destination.
 To install **Eanix Tools**, simply clone the repository and run:  
 
 ```sh
-make install
+sudo make install
 ```  
 
 This will automatically install all required dependencies and place the necessary files in the correct locations, allowing you to use them system-wide.  
