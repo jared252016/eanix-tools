@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Exit on any error
+set -e
+
+# Check if Docker daemon is running
+if ! docker info >/dev/null 2>&1; then
+    echo "Error: Docker daemon is not running"
+    exit 1
+fi
+
+# Check if docker-compose.yml exists in current directory
+if [ ! -f "docker-compose.yml" ] && [ ! -f "compose.yaml" ]; then
+    echo "Error: No docker-compose.yml or compose.yaml found in current directory"
+    exit 1
+fi
+
+echo "Stopping containers..."
+docker compose down
+
+echo "Pulling latest images..."
+docker compose pull
+
+echo "Starting containers..."
+docker compose up -d
+
+echo "Update complete!"
