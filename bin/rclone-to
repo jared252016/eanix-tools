@@ -1,0 +1,98 @@
+#!/bin/env python3
+import sys
+import subprocess
+import os
+from tqdm import tqdm 
+
+def run_rclone_command(args, destinations_file):
+    """Run rclone command for each destination specified in the destinations file."""
+    
+    try:
+        # Read destinations from the file
+        with open(destinations_file, 'r') as f:
+            destinations = f.read().splitlines()
+
+        if not destinations:
+            print(f"No destinations found in {destinations_file}.")
+            sys.exit(1)
+
+        # Remove '--destinations' flag from the arguments
+        filtered_args = [arg for arg in args if arg != '--destinations']
+
+        # Loop through all destinations and run the rclone command
+        tq = tqdm(total=len(destinations), desc="Running rclone for destinations")
+        for dest in destinations:
+            # Replace remote: with {destination_name}:
+            modified_args = []
+            for arg in filtered_args:
+                if 'remote:' in arg:
+                    modified_args.append(arg.replace('remote:', f'{dest}:'))
+                else:
+                    modified_args.append(arg)
+            
+            # Print the command that will be executed
+            tqdm.write(f"Running rclone for destination: {dest} with arguments: {modified_args}")
+
+            # Safety check to prevent running 'rclone config' commands
+            if "rclone config" in modified_args[0]:
+                print("rclone config is not allowed from rclone-to. Please use rclone config directly.")
+                sys.exit(1)
+
+            # Prepare the command
+            command = ["rclone"] + modified_args
+
+            # Execute the rclone command
+            process = subprocess.run(command, check=True, env=os.environ, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+
+
+            # Capture and print output and errors
+            if process.stdout:
+                tqdm.write(process.stdout)
+            #if result.stderr:
+            #    print(result.stderr.decode(), file=sys.stderr)
+            tq.update(1)
+
+    except FileNotFoundError as e:
+        print(f"Destinations file '{destinations_file}' not found. " + str(e))
+        sys.exit(1)
+    except subprocess.CalledProcessError as e:
+        print(f"Error occurred while running rclone: {e}")
+        print(f"stderr: {e.stderr.decode()}", file=sys.stderr)
+        sys.exit(1)
+
+def main():
+    # Parse command-line arguments
+    if '--destinations' not in sys.argv and '--help' not in sys.argv:
+        print("Usage: rclone-to copy /path/to/source remote:/path/to/destination --destinations list.txt")
+        print("Usage: rclone-to copy --destinations list.txt /path/to/source remote:/path/to/destination")
+        print("New Parameters:")
+        print("\t--destinations list.txt can be placed anywhere in the command. It contains a list of hosts from your rclone config, one per line.")
+        print("")
+        print("Run rclone-to --help for more information.")
+        sys.exit(1)
+
+    if '--help' in sys.argv:
+        print("Usage: rclone-to copy /path/to/source remote:/path/to/destination --destinations list.txt")
+        print("Usage: rclone-to copy --destinations list.txt /path/to/source remote:/path/to/destination")
+        print("New Parameters:")
+        print("\t--destinations list.txt can be placed anywhere in the command. It contains a list of hosts from your rclone config, one per line.")
+        print("")
+        subprocess.run(["rclone", "--help"], env=os.environ)
+        sys.exit(1)
+
+    # Extract '--destinations' flag and the file path
+    dest_flag_index = sys.argv.index('--destinations')
+    if dest_flag_index + 1 >= len(sys.argv):
+        print("Error: Missing destination file after --destinations flag.")
+        sys.exit(1)
+
+    destinations_file = sys.argv[dest_flag_index + 1]
+
+    # Collect the rest of the rclone command arguments
+    rclone_args = sys.argv[1:dest_flag_index] + sys.argv[dest_flag_index + 2:]
+
+    # Run the rclone command for each destination
+    run_rclone_command(rclone_args, destinations_file)
+
+if __name__ == "__main__":
+    main()
